@@ -62,22 +62,32 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
 
     // Material Icons Core (通常已經有了)
-    implementation("androidx.compose.material:material-icons-core:...") // 確保版本與其他 Compose 庫一致
-
-    implementation("androidx.compose.material:material-icons-extended:...") // 使用與其他 Compose 庫相同的版本
+    implementation(libs.androidx.material.icons.core) // 確保版本與其他 Compose 庫一致
+    implementation(libs.androidx.material.icons.extended) // 使用與其他 Compose 庫相同的版本
 
     // Navigation Compose
     val navVersion = "2.8.9" // 你可以檢查並使用最新的穩定版本
-    implementation("androidx.navigation:navigation-compose:$navVersion")
-
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7") // 檢查最新版本
-    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7") // ViewModelScope 需要
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose) // 檢查最新版本
+    implementation(libs.androidx.lifecycle.viewmodel.ktx) // ViewModelScope 需要
 
     // Import the Firebase BoM
-    implementation(platform("com.google.firebase:firebase-bom:33.11.0"))
+    implementation(platform(libs.firebase.bom))
 
     // TODO: Add the dependencies for Firebase products you want to use
     // When using the BoM, don't specify versions in Firebase dependencies
-    implementation("com.google.firebase:firebase-analytics")
+    implementation(libs.google.firebase.analytics)
+
+    // Add the dependency for the Firebase Authentication library
+    // When using the BoM, you don't specify versions in Firebase library dependencies
+    implementation(libs.firebase.auth)
+
+    implementation(libs.firebase.auth.ktx)
+
+    // Also add the dependency for the Google Play services library and specify its version
+    implementation(libs.play.services.auth)
+
+    implementation(libs.kotlinx.coroutines.play.services)
+
 
 }
