@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "718852503795",
+    "project_id": "jjll-e296e",
+    "storage_bucket": "jjll-e296e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:718852503795:android:8bc4edba842ab20ab75f86",
+        "android_client_info": {
+          "package_name": "com.example.signalapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCfEN_ZLXsSVAEhc6UCEmMU442DIpRaXOA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
