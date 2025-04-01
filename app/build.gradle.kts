@@ -3,6 +3,9 @@ plugins {
     id("com.google.gms.google-services")
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+//    id("kotlin-kapt")
+    id("com.google.devtools.ksp")
+    id("com.google.dagger.hilt.android")
 }
 
 android {
@@ -41,7 +44,6 @@ android {
 }
 
 dependencies {
-
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -50,9 +52,17 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
-    //
+    implementation(libs.androidx.material)
+
+    // Firebase BOM (保持最新)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.firestore)
+    implementation(libs.firebase.auth.ktx)
+    implementation(libs.firebase.firestore.ktx)
     implementation(libs.firebase.database.ktx)
-    implementation(libs.firebase.database)
+    implementation(libs.androidx.room.common)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -65,29 +75,33 @@ dependencies {
     implementation(libs.androidx.material.icons.core) // 確保版本與其他 Compose 庫一致
     implementation(libs.androidx.material.icons.extended) // 使用與其他 Compose 庫相同的版本
 
-    // Navigation Compose
-    val navVersion = "2.8.9" // 你可以檢查並使用最新的穩定版本
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose) // 檢查最新版本
     implementation(libs.androidx.lifecycle.viewmodel.ktx) // ViewModelScope 需要
 
-    // Import the Firebase BoM
-    implementation(platform(libs.firebase.bom))
-
-    // TODO: Add the dependencies for Firebase products you want to use
-    // When using the BoM, don't specify versions in Firebase dependencies
-    implementation(libs.google.firebase.analytics)
-
-    // Add the dependency for the Firebase Authentication library
-    // When using the BoM, you don't specify versions in Firebase library dependencies
-    implementation(libs.firebase.auth)
-
-    implementation(libs.firebase.auth.ktx)
-
     // Also add the dependency for the Google Play services library and specify its version
     implementation(libs.play.services.auth)
-
     implementation(libs.kotlinx.coroutines.play.services)
 
+    implementation(libs.kotlinx.coroutines.android)
 
+    //room
+    implementation(libs.androidx.room.runtime)
+    // 使用 KSP (推薦)
+    ksp(libs.androidx.room.compiler)
+    // 可選 - Kotlin 擴展和對 Coroutines 的支持 (幾乎必選)
+    implementation(libs.androidx.room.ktx)
+
+    // 可選 - Testing Room
+    // testImplementation("androidx.room:room-testing:$room_version")
+    // androidTestImplementation("androidx.room:room-testing:$room_version")
+
+
+    // Hilt
+    implementation(libs.hilt.android.v2511)
+    ksp(libs.hilt.compiler)
+    implementation(libs.androidx.hilt.navigation.compose.v110)
+
+    implementation(libs.jbcrypt)
 }
+
