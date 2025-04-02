@@ -103,5 +103,7 @@ dependencies {
     implementation(libs.androidx.hilt.navigation.compose.v110)
 
     implementation(libs.jbcrypt)
+
+    implementation("io.coil-kt:coil-compose:2.6.0")
 }
 
