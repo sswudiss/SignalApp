@@ -14,70 +14,55 @@ import androidx.compose.material.ContentAlpha
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.signalapp.ui.theme.SignalAppTheme
 
+// --- 輸入框的 Composable (MessageInput) ---
+// 這個也應該在你之前的步驟中定義好了，注意參數可能需要微調
 @Composable
 fun MessageInput(
-    onSendMessage: (String) -> Unit, // 回調函數，傳遞要發送的文本
+    currentText: String, // 使用 ViewModel 的狀態
+    onInputChange: (String) -> Unit, // 回調 ViewModel 更新
+    onSendMessage: () -> Unit, // 回調 ViewModel 發送
     modifier: Modifier = Modifier
 ) {
-    var inputText by remember { mutableStateOf("") }
-    val isSendEnabled = inputText.isNotBlank() // 只有在有輸入時才啟用發送按鈕
+    val isSendEnabled = currentText.isNotBlank() // 發送按鈕是否啟用
 
-    // Surface 包裹以提供背景色和陰影 (可選)
     Surface(
-        modifier = modifier.fillMaxWidth(), // 橫向填滿
-        shadowElevation = 4.dp // 給一點陰影
-        // color = MaterialTheme.colorScheme.surface // 可自定義背景色
+        modifier = modifier.fillMaxWidth(),
+        shadowElevation = 4.dp // 可選陰影
     ) {
-        // 使用 Row 來水平排列輸入框和按鈕
         Row(
             modifier = Modifier
-                .padding(8.dp) // 添加內邊距
-                .navigationBarsPadding(), // 為底部導航欄添加 padding (如果有的話)
-//                .imePadding(), // <--- 關鍵：為軟鍵盤彈出添加 padding，將輸入區域向上推
-            verticalAlignment = Alignment.CenterVertically // 垂直居中
+                // 只保留頂部和水平 padding，底部交給 imePadding
+                .padding(horizontal = 8.dp).padding(top = 8.dp)
+                .navigationBarsPadding() // 處理導航欄遮擋
+                .imePadding(), // *** 關鍵：處理鍵盤彈出 ***
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // 文本輸入框
             OutlinedTextField(
-                value = inputText,
-                onValueChange = { inputText = it },
+                value = currentText, // 綁定外部狀態
+                onValueChange = onInputChange, // 調用外部回調
                 placeholder = { Text("輸入消息...") },
                 modifier = Modifier
-                    .weight(1f) // 佔據大部分寬度
-                    .padding(end = 8.dp), // 和按鈕之間留點距離
-                // 可以自定義樣式，比如移除邊框，改變形狀等
-                shape = RoundedCornerShape(24.dp),
-//                 colors = TextFieldDefaults.outlinedTextFieldColors(...)
-                maxLines = 4 // 限制最大行數，防止無限增高
+                    .weight(1f) // 佔滿剩餘空間
+                    .padding(end = 8.dp), // 與按鈕間距
+                maxLines = 4 // 限制最大輸入行數
+                // 可以自定義 shape, colors 等
             )
-
-            // 發送按鈕 (只有在 inputText 非空時才啟用)
             IconButton(
-                onClick = {
-                    if (isSendEnabled) {
-                        onSendMessage(inputText) // 觸發回調
-                        inputText = "" // 清空輸入框
-                    }
-                },
-                enabled = isSendEnabled, // 根據輸入內容啟用/禁用
-                colors = IconButtonDefaults.iconButtonColors(
-                    contentColor = MaterialTheme.colorScheme.primary, // 圖標顏色
-                    disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = ContentAlpha.disabled) // 禁用時的顏色
-                )
+                onClick = onSendMessage, // 調用外部發送回調
+                enabled = isSendEnabled,
+                // ... (colors 等)
             ) {
-                Icon(
-                    imageVector = Icons.Filled.Send,
-                    contentDescription = "發送消息"
-                )
+                Icon(Icons.Filled.Send, contentDescription = "發送")
             }
         }
     }
 }
 
-// 輸入區域預覽
-@Preview(showBackground = true)
-@Composable
-fun MessageInputPreview() {
-    SignalAppTheme {
-        MessageInput(onSendMessage = {})
-    }
+// --- 格式化時間戳的輔助函數 ---
+// 這個應該也定義過
+fun formatMessageTimestamp(timestamp: Long): String {
+    // ... (之前的實現)
+    val date = java.util.Date(timestamp)
+    val pattern = "HH:mm"
+    return java.text.SimpleDateFormat(pattern, java.util.Locale.getDefault()).format(date)
 }

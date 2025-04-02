@@ -1,4 +1,4 @@
-package com.example.signalapp.ui
+package com.example.signalapp.ui.chatdetail
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
