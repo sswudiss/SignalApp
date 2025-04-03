@@ -82,7 +82,6 @@ dependencies {
     // Also add the dependency for the Google Play services library and specify its version
     implementation(libs.play.services.auth)
     implementation(libs.kotlinx.coroutines.play.services)
-
     implementation(libs.kotlinx.coroutines.android)
 
     //room
@@ -91,11 +90,9 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     // 可選 - Kotlin 擴展和對 Coroutines 的支持 (幾乎必選)
     implementation(libs.androidx.room.ktx)
-
     // 可選 - Testing Room
     // testImplementation("androidx.room:room-testing:$room_version")
     // androidTestImplementation("androidx.room:room-testing:$room_version")
-
 
     // Hilt
     implementation(libs.hilt.android.v2511)
@@ -103,7 +100,6 @@ dependencies {
     implementation(libs.androidx.hilt.navigation.compose.v110)
 
     implementation(libs.jbcrypt)
-
-    implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation(libs.coil.compose)
 }
 
