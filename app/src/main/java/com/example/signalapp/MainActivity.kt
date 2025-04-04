@@ -1,34 +1,61 @@
 package com.example.signalapp
 
-import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.annotation.RequiresApi
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import com.example.signalapp.navigation.AppNavigation
 import com.example.signalapp.navigation.NavigationDestination
+import com.example.signalapp.shared.ConnectionViewModel
 import com.example.signalapp.ui.theme.JJLLTheme
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
+import kotlinx.coroutines.delay
+import androidx.activity.viewModels // 導入 activity-ktx 的 viewModels 委託
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var auth: FirebaseAuth
+    // 使用 Activity KTX 的委託來獲取 Activity 範圍的 ViewModel 實例
+    private val connectionViewModel: ConnectionViewModel by viewModels()
 
-    @RequiresApi(Build.VERSION_CODES.S)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         auth = Firebase.auth // 初始化 Firebase Auth
 
         setContent {
             JJLLTheme { // 應用我們定義的主題
+                // 獲取 ConnectionViewModel 的實例 (Compose 方式，確保在 Activity 範圍內是同一個)
+                 val connectionViewModel: ConnectionViewModel = viewModel() // 這個也可以用
+                // 從 ViewModel 中讀取錯誤消息狀態
+                val connectionErrorMessage by connectionViewModel.errorMessage.collectAsState() // 或者直接 .value 如果不用 Flow
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -36,25 +63,82 @@ class MainActivity : ComponentActivity() {
                     // 檢查登錄狀態並設置初始路由
                     var startDestination by remember { mutableStateOf<String?>(null) }
 
-                    LaunchedEffect(key1 = Unit) { // LaunchedEffect 只在 Composable 首次進入組合時執行一次（或 key 變化時）
+                    LaunchedEffect(key1 = Unit) {
+                        delay(100) // 短暫延遲確保 Firebase 初始化
                         val currentUser = auth.currentUser
                         startDestination = if (currentUser != null) {
-                            // 如果用戶已登錄，跳轉到主頁面
                             NavigationDestination.Main.route
                         } else {
-                            // 如果用戶未登錄，跳轉到註冊頁面
                             NavigationDestination.Registration.route
                         }
+                        println("Check user state: ${currentUser?.uid}, start destination: $startDestination")
                     }
 
-                    // 只有在 startDestination 確定後才加載 NavHost
-                    if (startDestination != null) {
-                        AppNavigation(startDestination!!) // 傳遞初始路由
-                    } else {
-                        // 可以顯示一個加載指示器，或者保持空白直到 startDestination 被設置
-                        // 例如: CircularProgressIndicator()
+                    // 使用 Column 將錯誤提示和主要內容垂直排列
+                    Column(modifier = Modifier.fillMaxSize()) {
+
+                        // --- 全局錯誤提示區域 ---
+                        // 使用 AnimatedVisibility 實現平滑顯示/隱藏
+                        AnimatedVisibility(
+                            visible = connectionErrorMessage != null,
+                            enter = expandVertically(animationSpec = tween(300)),
+                            exit = shrinkVertically(animationSpec = tween(300))
+                        ) {
+                            GlobalErrorBanner(
+                                message = connectionErrorMessage ?: "", // 確保非 null
+                                onDismiss = { connectionViewModel.clearConnectionError() } // 允許用戶手動關閉
+                            )
+                        }
+
+                        // --- 主要內容區域 (NavHost) ---
+                        Box(modifier = Modifier.weight(1f)) { // 讓 NavHost 填充剩餘空間
+                            if (startDestination != null) {
+                                // 將 connectionViewModel 傳遞下去，以便子頁面可以調用 showError
+                                AppNavigation(
+                                    startDestination = startDestination!!,
+                                    connectionViewModel = connectionViewModel // 傳遞 ViewModel
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator()
+                                }
+                            }
+                        }
                     }
                 }
+            }
+        }
+    }
+}
+
+// --- 新增：全局錯誤提示條 Composable ---
+@Composable
+fun GlobalErrorBanner(message: String, onDismiss: (() -> Unit)? = null) { // 允許有關閉選項
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f)) // 紅色背景，帶一點透明
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween // 將文本和可能的關閉按鈕分開
+    ) {
+        Text(
+            text = message,
+            color = MaterialTheme.colorScheme.onErrorContainer, // 錯誤文字顏色
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f, fill = false) // 文本內容優先
+                .padding(end = 8.dp) // 與關閉按鈕間隔
+        )
+        if (onDismiss != null) {
+            IconButton(onClick = onDismiss, modifier = Modifier.size(24.dp)) {
+                Icon(
+                    Icons.Filled.Close,
+                    contentDescription = "關閉錯誤提示",
+                    tint = MaterialTheme.colorScheme.onErrorContainer
+                )
             }
         }
     }

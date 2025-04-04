@@ -19,7 +19,7 @@ import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.*
-import com.example.signalapp.screens.ChatListScreen
+import com.example.signalapp.screens.chat.ChatListScreen
 import com.example.signalapp.navigation.BottomNavItem
 import com.example.signalapp.screens.ContactsScreen
 import com.example.signalapp.screens.MyProfileScreen
@@ -260,7 +260,6 @@ fun PlaceholderScreen(name: String, modifier: Modifier = Modifier) {
 // }
 
 // --- Preview ---
-@RequiresApi(Build.VERSION_CODES.S)
 @Preview(showBackground = true)
 @Composable
 fun MainScreenPreview() {
@@ -274,7 +273,6 @@ fun MainScreenPreview() {
 }
 
 // 單獨預覽 TopAppBar
-@RequiresApi(Build.VERSION_CODES.S)
 @Preview(showBackground = true, backgroundColor = 0xFFFFFFFF) // 設置背景色方便預覽
 @Composable
 fun MainTopAppBarPreview() {
@@ -284,7 +282,6 @@ fun MainTopAppBarPreview() {
 }
 
 // 單獨預覽 BottomNavigation
-@RequiresApi(Build.VERSION_CODES.S)
 @Preview(showBackground = true)
 @Composable
 fun MainBottomNavigationPreview() {

@@ -1,4 +1,4 @@
-package com.example.signalapp.screens
+package com.example.signalapp.screens.chat
 
 import android.os.Build
 import androidx.annotation.RequiresApi

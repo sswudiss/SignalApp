@@ -1,6 +1,8 @@
 package com.example.signalapp.auth
 
 import android.os.Build
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalActivity
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.ClickableText
@@ -9,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
@@ -16,16 +19,22 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.signalapp.shared.ConnectionViewModel
 import com.example.signalapp.ui.theme.JJLLTheme
 
 @Composable
 fun RegistrationScreen(
     // ViewModel 實例，Compose 會自動處理其生命周期
     viewModel: RegistrationViewModel = viewModel(),
+    registrationViewModel: RegistrationViewModel = viewModel(),
+
+    // 獲取 Activity 範圍的 ConnectionViewModel
+    connectionViewModel: ConnectionViewModel = viewModel(viewModelStoreOwner = LocalActivity.current as ComponentActivity),
     // 導航回調函數
     onRegisterSuccess: () -> Unit,
     onNavigateToLogin: () -> Unit
 ) {
+
     // 從 ViewModel 獲取狀態
     val username = viewModel.username
     val password = viewModel.password
@@ -33,9 +42,20 @@ fun RegistrationScreen(
     val errorMessage = viewModel.errorMessage
     val isLoading = viewModel.isLoading
     val registrationSuccess = viewModel.registrationSuccess
-
     // 用於管理焦點，例如隱藏鍵盤
     val focusManager = LocalFocusManager.current
+
+    // ... 其他狀態獲取 ...
+    val registrationErrorMessage = registrationViewModel.errorMessage // 獲取註冊本身的錯誤
+
+    // 使用 LaunchedEffect 觀察註冊錯誤，並觸發全局錯誤提示
+    LaunchedEffect(registrationErrorMessage) {
+        if (registrationErrorMessage != null && registrationErrorMessage.contains("失敗")) { // 判斷是否是連接類錯誤
+            // 如果註冊錯誤是連接失敗引起的（你需要判斷錯誤類型），顯示全局橫幅
+            connectionViewModel.showConnectionError(registrationErrorMessage)
+            // registrationViewModel.clearErrorMessage() // 可以考慮清除ViewModel自身的錯誤避免重複顯示
+        }
+    }
 
     // 監聽註冊成功狀態，成功後執行導航回調
     LaunchedEffect(registrationSuccess) {
@@ -164,7 +184,6 @@ fun RegistrationScreenPreview() {
 }
 
 // 預覽錯誤狀態
-@RequiresApi(Build.VERSION_CODES.S)
 @Preview(showBackground = true)
 @Composable
 fun RegistrationScreenErrorPreview() {
@@ -187,11 +206,29 @@ fun RegistrationScreenErrorPreview() {
                 Spacer(modifier = Modifier.height(60.dp))
                 Text("創建您的 JJLL 賬戶", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(32.dp))
-                OutlinedTextField(value = "test", onValueChange = {}, label = { Text("用戶名") }, modifier = Modifier.fillMaxWidth(), isError = true)
+                OutlinedTextField(
+                    value = "test",
+                    onValueChange = {},
+                    label = { Text("用戶名") },
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = true
+                )
                 Spacer(modifier = Modifier.height(16.dp))
-                OutlinedTextField(value = "123456", onValueChange = {}, label = { Text("密碼 (至少6位)") }, modifier = Modifier.fillMaxWidth(), visualTransformation = PasswordVisualTransformation())
+                OutlinedTextField(
+                    value = "123456",
+                    onValueChange = {},
+                    label = { Text("密碼 (至少6位)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    visualTransformation = PasswordVisualTransformation()
+                )
                 Spacer(modifier = Modifier.height(16.dp))
-                OutlinedTextField(value = "123456", onValueChange = {}, label = { Text("確認密碼") }, modifier = Modifier.fillMaxWidth(), visualTransformation = PasswordVisualTransformation())
+                OutlinedTextField(
+                    value = "123456",
+                    onValueChange = {},
+                    label = { Text("確認密碼") },
+                    modifier = Modifier.fillMaxWidth(),
+                    visualTransformation = PasswordVisualTransformation()
+                )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "用戶名 'test' 已被註冊",
@@ -204,7 +241,11 @@ fun RegistrationScreenErrorPreview() {
                     Text("註冊")
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                ClickableText(text = AnnotatedString("已有賬戶？點此登錄"), onClick = {}, style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.primary))
+                ClickableText(
+                    text = AnnotatedString("已有賬戶？點此登錄"),
+                    onClick = {},
+                    style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
+                )
             }
         }
     }
