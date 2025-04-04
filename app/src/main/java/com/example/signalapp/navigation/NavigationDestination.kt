@@ -4,7 +4,7 @@ import androidx.navigation.NamedNavArgument
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 
-// 密封類定義所有可能的導航目的地
+// 使用你選擇的名稱 NavigationDestination
 sealed class NavigationDestination(val route: String, val arguments: List<NamedNavArgument> = emptyList()) {
     object Registration : NavigationDestination("registration")
     object Login : NavigationDestination("login")
@@ -19,6 +19,5 @@ sealed class NavigationDestination(val route: String, val arguments: List<NamedN
         fun createRoute(contactId: String) = "chat_detail/$contactId"
     }
 
-    // 可以在這裡添加更多屏幕，如 Contacts, MyProfile 等，如果它們是獨立的頂級路由
-    // 如果它們是 MainScreen 內部的子導航，則在 MainScreen 內部處理
+    // 可以在這裡添加更多屏幕...
 }

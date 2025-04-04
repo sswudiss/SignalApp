@@ -11,57 +11,55 @@ import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import android.util.Log // 導入 Log 用於調試
+import com.google.firebase.FirebaseException // 可以捕獲更廣泛的 Firebase 錯誤
+import com.google.firebase.auth.FirebaseAuthException // Auth 特有的錯誤基類
+import java.io.IOException // 捕獲網絡 IO 錯誤
 
 class RegistrationViewModel : ViewModel() {
 
-    // 使用 Firebase Auth 實例
     private val auth: FirebaseAuth = Firebase.auth
 
-    // UI 狀態，使用 Compose 的 State Delegate
     var username by mutableStateOf("")
-        private set // 外部只能讀取
-
+        private set
     var password by mutableStateOf("")
         private set
-
     var confirmPassword by mutableStateOf("")
         private set
-
     var errorMessage by mutableStateOf<String?>(null)
         private set
-
     var isLoading by mutableStateOf(false)
         private set
-
     var registrationSuccess by mutableStateOf(false)
         private set
 
-    // 更新用戶名狀態
     fun onUsernameChange(newUsername: String) {
         username = newUsername
-        errorMessage = null // 清除之前的錯誤信息
+        errorMessage = null
     }
 
-    // 更新密碼狀態
     fun onPasswordChange(newPassword: String) {
         password = newPassword
         errorMessage = null
     }
 
-    // 更新確認密碼狀態
     fun onConfirmPasswordChange(newConfirmPassword: String) {
         confirmPassword = newConfirmPassword
         errorMessage = null
     }
 
-    // 執行註冊邏輯
     fun registerUser() {
         // 基本驗證
         if (username.isBlank()) {
             errorMessage = "用戶名不能為空"
             return
         }
-        if (password.length < 6) { // Firebase 密碼至少需要 6 位
+        // Firebase 要求用戶名部分不能是純數字或其他非法字符，需要更嚴格的驗證，但這裡暫不處理
+        if (!username.matches(Regex("^[a-zA-Z0-9._%+-]+$"))) { // 簡單驗證用戶名格式
+            errorMessage = "用戶名只能包含字母、數字及 ._%+-"
+            return
+        }
+        if (password.length < 6) {
             errorMessage = "密碼長度至少需要 6 位"
             return
         }
@@ -70,33 +68,52 @@ class RegistrationViewModel : ViewModel() {
             return
         }
 
-        // 清除之前的錯誤並顯示加載狀態
         errorMessage = null
         isLoading = true
-        registrationSuccess = false // 重置成功狀態
+        registrationSuccess = false
 
-        // 構造符合要求的郵箱地址
         val email = "$username@cruise.com" // 使用固定後綴
 
-        // 使用 viewModelScope 啟動協程執行異步操作
         viewModelScope.launch {
             try {
-                // 調用 Firebase Auth API 創建用戶
-                auth.createUserWithEmailAndPassword(email, password).await() // await() 將 Task 轉換為 suspend 函數
-
-                // 註冊成功
+                Log.d("Registration", "Attempting to register user: $email") // 添加日誌
+                auth.createUserWithEmailAndPassword(email, password).await()
+                Log.d("Registration", "Registration successful for: $email")
                 isLoading = false
-                registrationSuccess = true // 設置成功標誌，觸發導航
+                registrationSuccess = true
 
             } catch (e: FirebaseAuthUserCollisionException) {
-                // 處理用戶名（郵箱）已存在的情況
+                // 用戶名（郵箱）已存在
                 isLoading = false
                 errorMessage = "用戶名 '$username' 已被註冊"
-            } catch (e: Exception) {
-                // 處理其他可能的 Firebase 錯誤或網絡錯誤
+                Log.w("RegistrationError", "User collision for $email", e)
+
+                // --- 捕獲網絡相關錯誤 ---
+            } catch (e: IOException) {
                 isLoading = false
-                errorMessage = "註冊失敗: ${e.localizedMessage ?: "未知錯誤"}"
-                // Log.e("RegistrationError", "Firebase registration failed", e) // 可以在 Logcat 中記錄詳細錯誤
+                // 提示網絡連接問題
+                errorMessage = "無法連接到註冊伺服器，請檢查您的網路連線或稍後重試。"
+                Log.e("RegistrationError", "Network IO error during registration", e)
+
+                // --- 捕獲其他 FirebaseAuth 錯誤 ---
+            } catch (e: FirebaseAuthException) { // 捕獲其他 Firebase Auth 特定的錯誤，如密碼太弱等
+                isLoading = false
+                // 可以根據 e.errorCode 提供更詳細的錯誤信息，但通用消息通常足夠
+                errorMessage = "註冊失敗: ${e.localizedMessage ?: "無效的輸入或伺服器問題"}"
+                Log.e("RegistrationError", "FirebaseAuthException: ${e.errorCode}", e)
+
+                // --- 捕獲其他 Firebase 平台級錯誤 ---
+            } catch (e: FirebaseException) { // 捕獲更廣泛的 Firebase 錯誤 (如配置問題等)
+                isLoading = false
+                errorMessage = "註冊時發生 Firebase 服務錯誤，請稍後重試。"
+                Log.e("RegistrationError", "FirebaseException", e)
+
+                // --- 通用備份錯誤捕獲 ---
+            } catch (e: Exception) {
+                // 處理其他未知錯誤
+                isLoading = false
+                errorMessage = "註冊時發生未知錯誤: ${e.localizedMessage ?: "請稍後重試"}"
+                Log.e("RegistrationError", "Generic Exception during registration", e)
             }
         }
     }

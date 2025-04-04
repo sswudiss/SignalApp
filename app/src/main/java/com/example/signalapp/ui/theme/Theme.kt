@@ -41,7 +41,6 @@ private val LightColorScheme = lightColorScheme(
 )
 
 
-@RequiresApi(Build.VERSION_CODES.S)
 @Composable
 fun JJLLTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),

@@ -1,7 +1,5 @@
 package com.example.signalapp
 
-import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,7 +19,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.*
 import com.example.signalapp.screens.chat.ChatListScreen
 import com.example.signalapp.navigation.BottomNavItem
-import com.example.signalapp.screens.ContactsScreen
+import com.example.signalapp.screens.contacts.ContactsScreen
 import com.example.signalapp.screens.MyProfileScreen
 import com.example.signalapp.ui.theme.JJLLTheme
 

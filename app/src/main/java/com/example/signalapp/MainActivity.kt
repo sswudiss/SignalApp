@@ -54,8 +54,10 @@ class MainActivity : ComponentActivity() {
             JJLLTheme { // 應用我們定義的主題
                 // 獲取 ConnectionViewModel 的實例 (Compose 方式，確保在 Activity 範圍內是同一個)
                  val connectionViewModel: ConnectionViewModel = viewModel() // 這個也可以用
-                // 從 ViewModel 中讀取錯誤消息狀態
-                val connectionErrorMessage by connectionViewModel.errorMessage.collectAsState() // 或者直接 .value 如果不用 Flow
+                // *** 正確觀察 ConnectionViewModel 的狀態 ***
+                // 使用 'by' 委託直接觀察 errorMessage State<String?>
+                val connectionErrorMessage by connectionViewModel::errorMessage
+
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -64,6 +66,7 @@ class MainActivity : ComponentActivity() {
                     var startDestination by remember { mutableStateOf<String?>(null) }
 
                     LaunchedEffect(key1 = Unit) {
+                        // 可以在這裡加一點延遲，確保Firebase Auth初始化完成，但非必需
                         delay(100) // 短暫延遲確保 Firebase 初始化
                         val currentUser = auth.currentUser
                         startDestination = if (currentUser != null) {
@@ -74,7 +77,7 @@ class MainActivity : ComponentActivity() {
                         println("Check user state: ${currentUser?.uid}, start destination: $startDestination")
                     }
 
-                    // 使用 Column 將錯誤提示和主要內容垂直排列
+                    // *** 使用 Column 包含錯誤橫幅和主要內容 ***
                     Column(modifier = Modifier.fillMaxSize()) {
 
                         // --- 全局錯誤提示區域 ---
@@ -84,6 +87,7 @@ class MainActivity : ComponentActivity() {
                             enter = expandVertically(animationSpec = tween(300)),
                             exit = shrinkVertically(animationSpec = tween(300))
                         ) {
+                            // 如果 connectionErrorMessage 可能為 null，提供一個默認值
                             GlobalErrorBanner(
                                 message = connectionErrorMessage ?: "", // 確保非 null
                                 onDismiss = { connectionViewModel.clearConnectionError() } // 允許用戶手動關閉
@@ -93,12 +97,16 @@ class MainActivity : ComponentActivity() {
                         // --- 主要內容區域 (NavHost) ---
                         Box(modifier = Modifier.weight(1f)) { // 讓 NavHost 填充剩餘空間
                             if (startDestination != null) {
+                                // *** 將 ConnectionViewModel 實例傳遞給 AppNavigation ***
+                                // 注意：AppNavigation 需要修改以接收此參數，或者在內部獲取
+                                // 我們先假設 AppNavigation 不需要這個參數，內部自行獲取
                                 // 將 connectionViewModel 傳遞下去，以便子頁面可以調用 showError
                                 AppNavigation(
                                     startDestination = startDestination!!,
-                                    connectionViewModel = connectionViewModel // 傳遞 ViewModel
+                                    // 如果 AppNavigation 需要，則取消註釋: connectionViewModel = connectionViewModel
                                 )
                             } else {
+                                // 加載指示器
                                 Box(
                                     modifier = Modifier.fillMaxSize(),
                                     contentAlignment = Alignment.Center

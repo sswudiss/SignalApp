@@ -17,6 +17,7 @@ import androidx.compose.material.icons.automirrored.filled.Send // 使用 AutoMi
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,74 +29,91 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
 import com.example.signalapp.model.Message
-import com.example.signalapp.ui.theme.JJLLTheme
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
+
+// 主 Composable - 使用 Hilt 獲取 ViewModel
 @Composable
 fun ChatDetailScreen(
+    contactId: String, // contactId 現在代表 conversationId
+    navController: NavController,
+    // 使用 Hilt 自動獲取 ViewModel 實例
+    viewModel: ChatDetailViewModel = hiltViewModel() // <--- 使用 hiltViewModel()
+) {
+    // 將 UI 邏輯委託給 Content Composable
+    ChatDetailScreenContent(
+        contactId = contactId,
+        navController = navController,
+        viewModel = viewModel // 傳遞由 Hilt 提供的 ViewModel
+    )
+}
+
+
+// UI 內容 Composable - 接收 ViewModel 作為參數 (方便預覽注入假 ViewModel)
+@Composable
+private fun ChatDetailScreenContent( // 設為 private 或 internal
     contactId: String,
     navController: NavController,
-    viewModel: ChatDetailViewModel = viewModel() // 獲取 ViewModel 實例
+    viewModel: ChatDetailViewModel // 直接接收 ViewModel
 ) {
-    // --- State ---
+    // --- State (從傳入的 viewModel 獲取) ---
     val inputText = viewModel.inputText
-    val messages = viewModel.messages
+    val messages by viewModel.messages.collectAsState()
     val contactName = viewModel.contactName
-    val isLoading = viewModel.isLoading
-    val listState = rememberLazyListState() // 用於滾動列表
-    val coroutineScope = rememberCoroutineScope() // 用於啟動協程滾動列表
-    val focusManager = LocalFocusManager.current // 用於管理鍵盤焦點
-    val focusRequester = remember { FocusRequester() } // 控制 TextField 焦點
+
+    val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+    val focusManager = LocalFocusManager.current
+    val focusRequester = remember { FocusRequester() }
 
     // --- Effects ---
-    // 當 contactId 變化時加載消息
-    LaunchedEffect(contactId) {
-        viewModel.loadMessages(contactId)
+    // 當 contactId (conversationId) 變化時，設置給 ViewModel
+    LaunchedEffect(contactId, viewModel) { // 添加 viewModel 作為 key，確保實例變化時也觸發
+        viewModel.setConversationId(contactId)
     }
 
     // 當有新消息時，自動滾動到底部
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
-            coroutineScope.launch {
-                // 延遲一小會兒確保佈局完成
-                delay(100)
-                listState.animateScrollToItem(messages.size - 1)
+            val lastMessage = messages.last()
+            val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
+            val shouldScroll = lastMessage.senderId == currentUserId ||
+                    (listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1) >= messages.size - 2
+
+            if (shouldScroll) {
+                coroutineScope.launch {
+                    delay(100)
+                    listState.animateScrollToItem(messages.size - 1)
+                }
             }
         }
     }
 
+
     // --- UI ---
     Scaffold(
-        // 這個 Screen 有自己的 TopAppBar
         topBar = {
             ChatDetailTopAppBar(
                 contactName = contactName,
-                onBackClick = { navController.popBackStack() }, // 返回上一頁
+                onBackClick = { navController.popBackStack() },
                 onVideoClick = { viewModel.onVideoCallClick() },
-                onMenuClick = { /* TODO: Show Dropdown Menu */ }, // 佔位，下面會添加下拉菜單
-                viewModel = viewModel // 將 ViewModel 傳遞給 TopAppBar 以便處理菜單項
+                viewModel = viewModel // 仍然需要將 viewModel 傳遞給子組件
             )
         },
-        // 輸入區域放在 bottomBar slot，這樣它總在底部，鍵盤會把它推上去
         bottomBar = {
             ChatInputArea(
                 inputText = inputText,
-                onInputChange = viewModel::onInputChange, // 使用方法引用
-                onSendClick = {
-                    viewModel.sendMessage()
-                    // focusManager.clearFocus() // 發送後可以選擇是否清除焦點
-                },
+                onInputChange = viewModel::onInputChange,
+                onSendClick = viewModel::sendMessage,
                 onAddClick = viewModel::onAddAttachment,
                 onCameraClick = viewModel::onCameraClick,
                 onVoiceClick = viewModel::onVoiceClick,
@@ -104,38 +122,35 @@ fun ChatDetailScreen(
         },
         modifier = Modifier
             .fillMaxSize()
-            .imePadding() // 添加 imePadding 來處理鍵盤遮擋
-            // 添加 pointerInput 來檢測主內容區域的點擊，以隱藏鍵盤
-            .pointerInput(Unit) {
+            .pointerInput(Unit) { // 鍵盤外部點擊隱藏鍵盤
                 detectTapGestures(onTap = {
                     focusManager.clearFocus()
                 })
             }
-    ) { paddingValues -> // Scaffold 提供的內邊距
-
-        // --- 消息列表 ---
+    ) { paddingValues ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues) // 應用 Scaffold 內邊距
-
+                .padding(paddingValues) // 應用 Scaffold 的 Padding
         ) {
-            if (isLoading) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            } else {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
-                    // reverseLayout = true // 反轉佈局，最新的消息在底部，但輸入新消息會讓它跳，更好的方式是正常佈局+滾動到底部
-                    verticalArrangement = Arrangement.spacedBy(8.dp) // 消息間的垂直間距
-                ) {
-                    items(messages, key = { it.id }) { message ->
-                        MessageBubble(
-                            message = message,
-                            isCurrentUser = message.senderId == "me" // 判斷是否是當前用戶發送
-                        )
-                    }
+            // 可以根據需要顯示加載狀態
+            // if (viewModel.isLoading) { CircularProgressIndicator(modifier = Modifier.align(Alignment.Center)) }
+
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp) // 消息間的垂直間距
+            ) {
+                // 使用從 StateFlow 收集到的 messages 列表
+                items(messages, key = { it.id }) { message ->
+                    // 判斷是否是當前用戶需要 currentUser Id
+                    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
+                    MessageBubble(
+                        message = message,
+                        // 使用真實用戶 ID 判斷，注意 currentUserId 可能為 null (雖然理論上進入此頁面應該已登錄)
+                        isCurrentUser = message.senderId == currentUserId
+                    )
                 }
             }
         }
@@ -143,20 +158,20 @@ fun ChatDetailScreen(
 }
 
 
-// --- 子組件 ---
+// --- 子組件 (保持不變) ---
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatDetailTopAppBar(
     contactName: String,
     onBackClick: () -> Unit,
     onVideoClick: () -> Unit,
-    onMenuClick: () -> Unit, // 替換為直接觸發下拉菜單顯示的邏輯
     viewModel: ChatDetailViewModel // 接收 ViewModel 來處理菜單項點擊
 ) {
-    var showMenu by remember { mutableStateOf(false) }
+    var showMenu by rememberSaveable { mutableStateOf(false) } // 使用 rememberSaveable 保存菜單狀態
 
     TopAppBar(
-        title = { Text(contactName, maxLines = 1) }, // 顯示聯繫人姓名
+        title = { Text(contactName, maxLines = 1) },
         navigationIcon = {
             IconButton(onClick = onBackClick) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
@@ -166,11 +181,9 @@ fun ChatDetailTopAppBar(
             IconButton(onClick = onVideoClick) {
                 Icon(Icons.Filled.Videocam, contentDescription = "視頻通話")
             }
-            // 菜單按鈕
             IconButton(onClick = { showMenu = !showMenu }) { // 點擊切換菜單顯示
                 Icon(Icons.Filled.MoreVert, contentDescription = "菜單")
             }
-            // 下拉菜單
             DropdownMenu(
                 expanded = showMenu,
                 onDismissRequest = { showMenu = false } // 點擊菜單外部關閉
@@ -198,7 +211,6 @@ fun ChatDetailTopAppBar(
                 )
             }
         },
-        // 固定在頂部，設置顏色等
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer,
             titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -208,33 +220,26 @@ fun ChatDetailTopAppBar(
     )
 }
 
-
-
-
-@SuppressLint("SimpleDateFormat") // 處理日期格式化警告
+@SuppressLint("SimpleDateFormat")
 @Composable
 fun MessageBubble(message: Message, isCurrentUser: Boolean) {
     val alignment = if (isCurrentUser) Alignment.CenterEnd else Alignment.CenterStart
-    val backgroundColor =
-        if (isCurrentUser) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer
-    val textColor =
-        if (isCurrentUser) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
+    val backgroundColor = if (isCurrentUser) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer
+    val textColor = if (isCurrentUser) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
     val bubbleShape = RoundedCornerShape(
         topStart = 16.dp,
         topEnd = 16.dp,
-        bottomStart = if (isCurrentUser) 16.dp else 0.dp, // 根據發送者調整尖角
+        bottomStart = if (isCurrentUser) 16.dp else 0.dp,
         bottomEnd = if (isCurrentUser) 0.dp else 16.dp
     )
-    // 簡單的時間格式化
     val formatter = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
     val timeString = remember(message.timestamp) { formatter.format(Date(message.timestamp)) }
 
-
-    Box(modifier = Modifier.fillMaxWidth()) { // 讓氣泡可以在 Box 內左右對齊
+    Box(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier
-                .align(alignment) // 將 Column 對齊到 Box 的 Start 或 End
-                .widthIn(max = LocalConfiguration.current.screenWidthDp.dp * 0.7f) // 限制最大寬度
+                .align(alignment)
+                .widthIn(max = LocalConfiguration.current.screenWidthDp.dp * 0.75f)
                 .clip(bubbleShape)
                 .background(backgroundColor)
                 .padding(horizontal = 12.dp, vertical = 8.dp)
@@ -247,9 +252,9 @@ fun MessageBubble(message: Message, isCurrentUser: Boolean) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = timeString,
-                color = textColor.copy(alpha = 0.7f), // 時間文字稍暗
+                color = textColor.copy(alpha = 0.7f),
                 style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.align(Alignment.End) // 時間戳靠右
+                modifier = Modifier.align(Alignment.End)
             )
         }
     }
@@ -262,8 +267,8 @@ fun ChatInputArea(
     onInputChange: (String) -> Unit,
     onSendClick: () -> Unit,
     onAddClick: () -> Unit,
-    onCameraClick: () -> Unit, // 需要這個回調
-    onVoiceClick: () -> Unit,  // 需要這個回調
+    onCameraClick: () -> Unit, // 參數保留
+    onVoiceClick: () -> Unit,  // 參數保留
     focusRequester: FocusRequester
 ) {
     val isTextEmpty = inputText.isBlank()
@@ -278,9 +283,8 @@ fun ChatInputArea(
             modifier = Modifier
                 .padding(horizontal = 8.dp, vertical = 8.dp)
                 .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.Bottom
         ) {
-            // 輸入框
             OutlinedTextField(
                 value = inputText,
                 onValueChange = onInputChange,
@@ -302,137 +306,33 @@ fun ChatInputArea(
                 ),
                 keyboardActions = KeyboardActions(
                     onSend = {
-                        onSendClick()
-                        // focusManager.clearFocus()
-                    }
-                ),
-                maxLines = 5,
-
-                // ******** 新增/修改的部分 ********
-                trailingIcon = {
-                    // 只有當輸入框為空時，才顯示內部圖標
-                    if (isTextEmpty) {
-                        Row { // 將相機和語音圖標放在一行
-                            IconButton(onClick = onCameraClick, modifier = Modifier.size(48.dp)) { // 給予足夠的點擊區域
-                                Icon(
-                                    Icons.Filled.PhotoCamera,
-                                    contentDescription = "拍照",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant // 可以自定義顏色
-                                )
-                            }
-                            // 可以加個小的間隔
-                            // Spacer(modifier = Modifier.width(4.dp))
-                            IconButton(onClick = onVoiceClick, modifier = Modifier.size(48.dp)) {
-                                Icon(
-                                    Icons.Filled.Mic,
-                                    contentDescription = "錄音",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
+                        if (!isTextEmpty) {
+                            onSendClick()
                         }
                     }
-                    // 如果 inputText 不為空，trailingIcon lambda 返回 Unit，即不顯示任何東西
-                }
-                // ******** 新增/修改結束 ********
+                ),
+                maxLines = 5
             )
 
-            // ****** 外部按鈕區域 ******
-            // 這個 Row 只包含 加號 或 發送 按鈕
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (isTextEmpty) {
-                    // 輸入框為空時，顯示加號按鈕
-                    IconButton(onClick = onAddClick) {
-                        Icon(Icons.Filled.Add, contentDescription = "添加附件", modifier = Modifier.size(28.dp))
-                    }
-                    // **** 確保這裡沒有重複的相機和語音圖標 ****
-                } else {
-                    // 輸入框有內容時，顯示發送按鈕
-                    IconButton(
-                        onClick = onSendClick,
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary)
-                    ) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "發送",
-                            tint = MaterialTheme.colorScheme.onPrimary
-                        )
-                    }
+            if (isTextEmpty) {
+                IconButton(onClick = onAddClick) {
+                    Icon(Icons.Filled.Add, contentDescription = "添加附件", modifier = Modifier.size(28.dp))
+                }
+            } else {
+                IconButton(
+                    onClick = onSendClick,
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary, CircleShape)
+                        .padding(8.dp)
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.Send,
+                        contentDescription = "發送",
+                        tint = MaterialTheme.colorScheme.onPrimary
+                    )
                 }
             }
         }
-    }
-}
-
-// --- Preview ---
-// 在 Preview 中更新 ChatInputArea 的調用，確保傳入了 onCameraClick 和 onVoiceClick
-
-@Preview(showBackground = true)
-@Composable
-fun ChatInputAreaEmptyPreview() {
-    JJLLTheme {
-        ChatInputArea(
-            inputText = "",
-            onInputChange = {},
-            onSendClick = {},
-            onAddClick = {},
-            onCameraClick = {}, // 添加回調
-            onVoiceClick = {},  // 添加回調
-            focusRequester = FocusRequester()
-        )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun ChatInputAreaWithTextPreview() {
-    JJLLTheme {
-        ChatInputArea(
-            inputText = "Hello there!",
-            onInputChange = {},
-            onSendClick = {},
-            onAddClick = {},
-            onCameraClick = {}, // 添加回調
-            onVoiceClick = {},  // 添加回調
-            focusRequester = FocusRequester()
-        )
-    }
-}
-// --- Preview ---
-@Preview(showBackground = true)
-@Composable
-fun ChatDetailScreenPreview() {
-    JJLLTheme { // 或 JJLLTheme
-        ChatDetailScreen(
-            contactId = "user_preview",
-            navController = rememberNavController()
-            // ViewModel 會自動創建模擬數據
-        )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun MessageBubbleCurrentUserPreview() {
-    JJLLTheme {
-        MessageBubble(
-            message = Message(
-                text = "這是當前用戶發送的一條比較長的消息，看看換行效果。",
-                senderId = "me"
-            ), isCurrentUser = true
-        )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun MessageBubbleOtherUserPreview() {
-    JJLLTheme {
-        MessageBubble(
-            message = Message(text = "這是對方用戶發送的消息。", senderId = "other"),
-            isCurrentUser = false
-        )
     }
 }
