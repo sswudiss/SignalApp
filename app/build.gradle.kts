@@ -6,6 +6,7 @@ plugins {
 //    id("kotlin-kapt")
     id("com.google.devtools.ksp")
     id("com.google.dagger.hilt.android")
+
 }
 
 android {
@@ -101,5 +102,18 @@ dependencies {
 
     implementation(libs.jbcrypt)
     implementation(libs.coil.compose)
+
+    // Supabase BOM（确保版本一致）
+    implementation(platform("io.github.jan-tennert.supabase:bom:3.1.4")) // 使用最新版本
+    // Supabase 模块
+    implementation("io.github.jan-tennert.supabase:postgrest-kt") // 数据库操作
+    implementation("io.github.jan-tennert.supabase:auth-kt")     // 身份验证
+    implementation("io.github.jan-tennert.supabase:realtime-kt") // 实时功能
+    implementation("io.github.jan-tennert.supabase:storage-kt")  // 文件存储
+
+    // Ktor 客户端（用于网络请求）
+    implementation("io.ktor:ktor-client-android:3.1.2") // 使用最新版本
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
+
 }
 
