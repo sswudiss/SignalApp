@@ -38,13 +38,21 @@ import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.delay
 import androidx.activity.viewModels // 導入 activity-ktx 的 viewModels 委託
 import androidx.lifecycle.viewmodel.compose.viewModel
+import dagger.hilt.android.AndroidEntryPoint
 
-
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    // 注意：即使MainActivity本身不直接注入任何東西，
+    // 但如果它承載的 Composable 使用了 hiltViewModel()，
+    // Activity 作為 ViewModel 的容器也需要被 Hilt 管理，因此需要此註解。
+    /*
+    * @AndroidEntryPoint 註解會觸發 Hilt 的代碼生成器，為 MainActivity 生成一個 Hilt 組件。
+    * 這個組件負責管理 MainActivity 的生命週期以及注入依賴。當你在 MainActivity 承載的 Composable 中調用 hiltViewModel() 時，
+    * Hilt 需要能夠從其父級（Activity）的 Hilt 組件中獲取 ViewModel 實例。如果 Activity 沒有 @AndroidEntryPoint，
+    * Hilt 就找不到這個組件，從而拋出錯誤。
+    * */
 
     private lateinit var auth: FirebaseAuth
-    // 使用 Activity KTX 的委託來獲取 Activity 範圍的 ViewModel 實例
-    private val connectionViewModel: ConnectionViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,7 +61,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             JJLLTheme { // 應用我們定義的主題
                 // 獲取 ConnectionViewModel 的實例 (Compose 方式，確保在 Activity 範圍內是同一個)
-                 val connectionViewModel: ConnectionViewModel = viewModel() // 這個也可以用
+                val connectionViewModel: ConnectionViewModel = viewModel() // 這個也可以用
                 // *** 正確觀察 ConnectionViewModel 的狀態 ***
                 // 使用 'by' 委託直接觀察 errorMessage State<String?>
                 val connectionErrorMessage by connectionViewModel::errorMessage
@@ -137,7 +145,8 @@ fun GlobalErrorBanner(message: String, onDismiss: (() -> Unit)? = null) { // 允
             text = message,
             color = MaterialTheme.colorScheme.onErrorContainer, // 錯誤文字顏色
             style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(1f, fill = false) // 文本內容優先
+            modifier = Modifier
+                .weight(1f, fill = false) // 文本內容優先
                 .padding(end = 8.dp) // 與關閉按鈕間隔
         )
         if (onDismiss != null) {
